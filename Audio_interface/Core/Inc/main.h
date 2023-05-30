@@ -65,8 +65,6 @@ void Error_Handler(void);
 #define Y_A2_GPIO_Port GPIOA
 #define X__Pin GPIO_PIN_3
 #define X__GPIO_Port GPIOA
-#define SOUND_OUT_Pin GPIO_PIN_4
-#define SOUND_OUT_GPIO_Port GPIOA
 #define LCD_CS_Pin GPIO_PIN_0
 #define LCD_CS_GPIO_Port GPIOB
 #define LCD_DC_Pin GPIO_PIN_1
