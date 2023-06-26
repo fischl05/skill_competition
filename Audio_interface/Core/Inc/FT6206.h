@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <main.h>
 
-#define FT62XX_ADDR 0x38           //!< I2C address
+#define FT62XX_ADDR 0x71           //!< I2C address
 #define FT62XX_G_FT5201ID 0xA8     //!< FocalTech's panel ID
 #define FT62XX_REG_NUMTOUCHES 0x02 //!< Number of touch points
 
@@ -26,7 +27,10 @@
 #define FT6236_CHIPID 0x36  //!< Chip selecting
 #define FT6236U_CHIPID 0x64 //!< Chip selecting
 
-#define FT62XX_DEFAULT_THRESHOLD 1328 //!< Default threshold for touch detection
+// calibrated for Adafruit 2.8" ctp screen
+#define FT62XX_DEFAULT_THRESHOLD 128 //!< Default threshold for touch detection
+
+extern I2C_HandleTypeDef hi2c1;
 
 typedef struct {
 	int16_t x; // X coordinate
@@ -34,22 +38,15 @@ typedef struct {
 	int16_t z; // Z coordinate (often used for pressure)
 }TS_POINT;
 
-TS_POINT coor; // user coordinate
-
-uint8_t touches;
-uint16_t touchX[2], touchY[2], touchID[2];
-
 // coordinate function
-bool same_coordinate(TS_POINT p1);
-bool different_coordiname(TS_POINT p1);
-
 void TS_POINT_clear(void);
 void TS_POINT_set(int16_t _x, int16_t _y, int16_t _z);
 
 // FT6206 function
 void INIT_FT6206(void);
+void FT6206_Rotation(uint8_t i);
 bool FT6206_Begin(uint8_t thresh);
-uint8_t touched(void);
 TS_POINT getPoint(uint8_t n);
+uint8_t touched(void);
 
 #endif

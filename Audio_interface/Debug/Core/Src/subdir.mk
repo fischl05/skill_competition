@@ -5,55 +5,43 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Core/Src/DS3231.c \
+../Core/Src/FT6206.c \
 ../Core/Src/ILI9341_GFX.c \
 ../Core/Src/ILI9341_STM32_Driver.c \
-../Core/Src/adc.c \
-../Core/Src/dac.c \
 ../Core/Src/fonts.c \
-../Core/Src/gpio.c \
-../Core/Src/i2c.c \
 ../Core/Src/main.c \
-../Core/Src/spi.c \
 ../Core/Src/stm32l0xx_hal_msp.c \
 ../Core/Src/stm32l0xx_it.c \
 ../Core/Src/syscalls.c \
 ../Core/Src/sysmem.c \
-../Core/Src/system_stm32l0xx.c \
-../Core/Src/tim.c 
+../Core/Src/system_stm32l0xx.c 
 
 OBJS += \
+./Core/Src/DS3231.o \
+./Core/Src/FT6206.o \
 ./Core/Src/ILI9341_GFX.o \
 ./Core/Src/ILI9341_STM32_Driver.o \
-./Core/Src/adc.o \
-./Core/Src/dac.o \
 ./Core/Src/fonts.o \
-./Core/Src/gpio.o \
-./Core/Src/i2c.o \
 ./Core/Src/main.o \
-./Core/Src/spi.o \
 ./Core/Src/stm32l0xx_hal_msp.o \
 ./Core/Src/stm32l0xx_it.o \
 ./Core/Src/syscalls.o \
 ./Core/Src/sysmem.o \
-./Core/Src/system_stm32l0xx.o \
-./Core/Src/tim.o 
+./Core/Src/system_stm32l0xx.o 
 
 C_DEPS += \
+./Core/Src/DS3231.d \
+./Core/Src/FT6206.d \
 ./Core/Src/ILI9341_GFX.d \
 ./Core/Src/ILI9341_STM32_Driver.d \
-./Core/Src/adc.d \
-./Core/Src/dac.d \
 ./Core/Src/fonts.d \
-./Core/Src/gpio.d \
-./Core/Src/i2c.d \
 ./Core/Src/main.d \
-./Core/Src/spi.d \
 ./Core/Src/stm32l0xx_hal_msp.d \
 ./Core/Src/stm32l0xx_it.d \
 ./Core/Src/syscalls.d \
 ./Core/Src/sysmem.d \
-./Core/Src/system_stm32l0xx.d \
-./Core/Src/tim.d 
+./Core/Src/system_stm32l0xx.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
@@ -63,7 +51,7 @@ Core/Src/%.o Core/Src/%.su: ../Core/Src/%.c Core/Src/subdir.mk
 clean: clean-Core-2f-Src
 
 clean-Core-2f-Src:
-	-$(RM) ./Core/Src/ILI9341_GFX.d ./Core/Src/ILI9341_GFX.o ./Core/Src/ILI9341_GFX.su ./Core/Src/ILI9341_STM32_Driver.d ./Core/Src/ILI9341_STM32_Driver.o ./Core/Src/ILI9341_STM32_Driver.su ./Core/Src/adc.d ./Core/Src/adc.o ./Core/Src/adc.su ./Core/Src/dac.d ./Core/Src/dac.o ./Core/Src/dac.su ./Core/Src/fonts.d ./Core/Src/fonts.o ./Core/Src/fonts.su ./Core/Src/gpio.d ./Core/Src/gpio.o ./Core/Src/gpio.su ./Core/Src/i2c.d ./Core/Src/i2c.o ./Core/Src/i2c.su ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/spi.d ./Core/Src/spi.o ./Core/Src/spi.su ./Core/Src/stm32l0xx_hal_msp.d ./Core/Src/stm32l0xx_hal_msp.o ./Core/Src/stm32l0xx_hal_msp.su ./Core/Src/stm32l0xx_it.d ./Core/Src/stm32l0xx_it.o ./Core/Src/stm32l0xx_it.su ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32l0xx.d ./Core/Src/system_stm32l0xx.o ./Core/Src/system_stm32l0xx.su ./Core/Src/tim.d ./Core/Src/tim.o ./Core/Src/tim.su
+	-$(RM) ./Core/Src/DS3231.d ./Core/Src/DS3231.o ./Core/Src/DS3231.su ./Core/Src/FT6206.d ./Core/Src/FT6206.o ./Core/Src/FT6206.su ./Core/Src/ILI9341_GFX.d ./Core/Src/ILI9341_GFX.o ./Core/Src/ILI9341_GFX.su ./Core/Src/ILI9341_STM32_Driver.d ./Core/Src/ILI9341_STM32_Driver.o ./Core/Src/ILI9341_STM32_Driver.su ./Core/Src/fonts.d ./Core/Src/fonts.o ./Core/Src/fonts.su ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/stm32l0xx_hal_msp.d ./Core/Src/stm32l0xx_hal_msp.o ./Core/Src/stm32l0xx_hal_msp.su ./Core/Src/stm32l0xx_it.d ./Core/Src/stm32l0xx_it.o ./Core/Src/stm32l0xx_it.su ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32l0xx.d ./Core/Src/system_stm32l0xx.o ./Core/Src/system_stm32l0xx.su
 
 .PHONY: clean-Core-2f-Src
 

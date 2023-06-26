@@ -60,8 +60,8 @@ all: main-build
 main-build: Audio_interface.elf secondary-outputs
 
 # Tool invocations
-Audio_interface.elf Audio_interface.map: $(OBJS) $(USER_OBJS) C:\Users\guesta\Documents\Task\ 3\STM32L052K6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Audio_interface.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\guesta\Documents\Task 3\STM32L052K6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Audio_interface.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Audio_interface.elf Audio_interface.map: $(OBJS) $(USER_OBJS) C:\Users\guesta\Desktop\Audio_interface\STM32L052K6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Audio_interface.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\guesta\Desktop\Audio_interface\STM32L052K6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Audio_interface.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

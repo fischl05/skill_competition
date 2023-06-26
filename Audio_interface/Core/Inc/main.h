@@ -59,12 +59,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define SOUND_IN_Pin GPIO_PIN_0
 #define SOUND_IN_GPIO_Port GPIOA
-#define Y__Pin GPIO_PIN_1
-#define Y__GPIO_Port GPIOA
-#define Y_A2_Pin GPIO_PIN_2
-#define Y_A2_GPIO_Port GPIOA
-#define X__Pin GPIO_PIN_3
-#define X__GPIO_Port GPIOA
 #define LCD_CS_Pin GPIO_PIN_0
 #define LCD_CS_GPIO_Port GPIOB
 #define LCD_DC_Pin GPIO_PIN_1

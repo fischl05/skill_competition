@@ -9,6 +9,9 @@ extern SPI_HandleTypeDef hspi1;
 #define ILI9341_SCREEN_HEIGHT 	240
 #define ILI9341_SCREEN_WIDTH 	320
 
+#define LCD_HEIGHT              240
+#define LCD_WIDTH               320
+
 /* PIN Configuration */
 #define HSPI_INSTANCE			&hspi1
 #define LCD_CS_PORT				GPIOB
@@ -39,18 +42,12 @@ extern SPI_HandleTypeDef hspi1;
 #define GREENYELLOW 			0xAFE5
 #define PINK        			0xF81F
 
-#define SCREEN_VERTICAL_1		0
-#define SCREEN_HORIZONTAL_1		1
-#define SCREEN_VERTICAL_2		2
-#define SCREEN_HORIZONTAL_2		3
-
 void ILI9341_WriteCommand(uint8_t cmd);
 void ILI9341_WriteData(uint8_t data);
 void ILI9341_WriteBuffer(uint8_t *buffer, uint16_t len);
 void ILI9341_Reset(void);
 void ILI9341_Enable(void);
 void ILI9341_Init(void);
-void ILI9341_SetRotation(uint8_t rotation);
 void ILI9341_SetAddress(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 void ILI9341_DrawColor(uint16_t color);
 void ILI9341_DrawColorBurst(uint16_t color, uint32_t size);

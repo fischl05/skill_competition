@@ -1,17 +1,5 @@
 #include "ILI9341_STM32_Driver.h"
 
-volatile uint16_t LCD_HEIGHT = ILI9341_SCREEN_HEIGHT;
-volatile uint16_t LCD_WIDTH	 = ILI9341_SCREEN_WIDTH;
-
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
-{
-  /* Deselect when Tx Complete */
-  if(hspi == HSPI_INSTANCE)
-  {
-//	  HAL_GPIO_WritePin(LCD_CS_PORT, LCD_CS_PIN, GPIO_PIN_SET);
-  }
-}
-
 static void ILI9341_SPI_Tx(uint8_t data)
 {
 	while(!__HAL_SPI_GET_FLAG(HSPI_INSTANCE, SPI_FLAG_TXE));
@@ -220,39 +208,10 @@ void ILI9341_Init(void)
 	ILI9341_WriteCommand(0x29);
 
 	//STARTING ROTATION
-	ILI9341_SetRotation(SCREEN_VERTICAL_1);
-}
-
-void ILI9341_SetRotation(uint8_t rotation)
-{
 	ILI9341_WriteCommand(0x36);
 	HAL_Delay(1);
 
-	switch(rotation)
-	{
-	case SCREEN_VERTICAL_1:
-		ILI9341_WriteData(0x40|0x08);
-		LCD_WIDTH = 240;
-		LCD_HEIGHT = 320;
-		break;
-	case SCREEN_HORIZONTAL_1:
-		ILI9341_WriteData(0x20|0x08);
-		LCD_WIDTH  = 320;
-		LCD_HEIGHT = 240;
-		break;
-	case SCREEN_VERTICAL_2:
-		ILI9341_WriteData(0x80|0x08);
-		LCD_WIDTH  = 240;
-		LCD_HEIGHT = 320;
-		break;
-	case SCREEN_HORIZONTAL_2:
-		ILI9341_WriteData(0x40|0x80|0x20|0x08);
-		LCD_WIDTH  = 320;
-		LCD_HEIGHT = 240;
-		break;
-	default:
-		break;
-	}
+	ILI9341_WriteData(0x20|0x08);
 }
 
 void ILI9341_DrawColor(uint16_t color)

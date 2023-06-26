@@ -1,0 +1,9 @@
+../Core/Src/FT6206.c:7:16:readRegister8	40	static
+../Core/Src/FT6206.c:14:13:writeRegister8	24	static
+../Core/Src/FT6206.c:19:6:FT6206_Begin	32	static
+../Core/Src/FT6206.c:31:6:readData	40	static
+../Core/Src/FT6206.c:55:6:INIT_FT6206	8	static
+../Core/Src/FT6206.c:59:9:touched	24	static
+../Core/Src/FT6206.c:66:10:getPoint	16	static
+../Core/Src/FT6206.c:75:6:TS_POINT_clear	8	static
+../Core/Src/FT6206.c:79:6:TS_POINT_set	24	static
