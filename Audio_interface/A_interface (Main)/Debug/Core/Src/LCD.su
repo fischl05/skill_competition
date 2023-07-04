@@ -1,0 +1,15 @@
+../Core/Src/LCD.c:8:16:Test_Rx	16	static
+../Core/Src/LCD.c:17:13:Coordinate_Tx	24	static
+../Core/Src/LCD.c:28:6:LCD_DrawColor	16	static
+../Core/Src/LCD.c:36:6:LCD_DrawColorBurst	24	static
+../Core/Src/LCD.c:48:6:LCD_FillScreen	16	static
+../Core/Src/LCD.c:56:6:LCD_DrawPixel	24	static
+../Core/Src/LCD.c:65:6:LCD_DrawRectangle	32	static
+../Core/Src/LCD.c:82:6:LCD_DrawHLine	32	static
+../Core/Src/LCD.c:95:6:LCD_DrawVLine	32	static
+../Core/Src/LCD.c:108:6:LCD_DrawHollowCircle	32	static
+../Core/Src/LCD.c:121:6:LCD_DrawFilledCircle	32	static
+../Core/Src/LCD.c:134:6:LCD_DrawHollowRectangleCoord	24	static
+../Core/Src/LCD.c:144:6:LCD_DrawFilledRectangleCoord	24	static
+../Core/Src/LCD.c:154:6:LCD_DrawChar	24	static
+../Core/Src/LCD.c:165:6:LCD_DrawText	40	static
