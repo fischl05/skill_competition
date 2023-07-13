@@ -41,6 +41,17 @@ typedef struct{
 	uint16_t x, y;
 }POS;
 
+typedef enum{
+	Background_Color_ADDR,
+	Text_Color_ADDR,
+	Volume_ADDR,
+	Pitch_ADDR,
+}ADDR;
+
+typedef enum{
+	main_menu, sound, setting, select_menu,
+}MODE;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -50,11 +61,11 @@ typedef struct{
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 #define RECT 53
-#define BUZ(X) HAL_GPIO_WritePin(BUZ_GPIO_Port, BUZ_Pin, X)
+#define BUZ(X) GPIOB->BSRR = (X) ? GPIO_PIN_3 : GPIO_PIN_3 << 16
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- ADC_HandleTypeDef hadc;
+ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
 
 DAC_HandleTypeDef hdac;
@@ -68,17 +79,22 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 
 const uint8_t lastDay[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+const LCD_COLOR lcd_color[6] = { black, blue, green, red, yellow, white };
 
-LCD_COLOR lcd_color[6] = { black, blue, green, red, yellow, white };
 LCD_COLOR txt_color[17] = { black }, back_color[17] = { white };
 LCD_COLOR set_tcolor = black, set_bcolor = white;
 TS_POINT curXY = { 0, 0 };
 TIME time = { 23, 6, 22, 0, 0, 0 };
+MODE modeF = main_menu, backupM = main_menu;
 
-uint8_t modeF, firF, buzM, sel, dac_start = 0, pitch_state = 5;
-uint16_t buzC, max_volume = 50;
+uint8_t firF, buzM, sel;
+uint16_t buzC;
+
+uint8_t pitch_state = 5, coor_volume = 135, coor_pitch = 135;
+uint16_t max_volume = 50;
 uint32_t adcV = 0;
 
+uint8_t dac_start = 0;
 float pitch = 0.0;
 
 /* USER CODE END PV */
@@ -92,8 +108,13 @@ static void MX_I2C1_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
+void color_read(void);
+void VP_read(void);
+
+/* Inline Function Define Start */
 __STATIC_INLINE void time_set(void){
 	DS3231_set_date(time.day, time.month, time.year);
 	DS3231_set_time(time.sec, time.min, time.hour);
@@ -113,6 +134,7 @@ __STATIC_INLINE void LCD_Clear(LCD_COLOR color){
 }
 
 __STATIC_INLINE void reset_value(void){
+	backupM = modeF;
 	modeF = firF = buzM = 0;
 	curXY.x = curXY.y = 0;
 	LCD_Clear(set_bcolor);
@@ -134,10 +156,64 @@ __STATIC_INLINE void pitch_set(void){
 	}
 }
 
+__STATIC_INLINE void eepWrite(uint8_t addr, uint8_t data){
+	HAL_FLASHEx_DATAEEPROM_Unlock();
+	*(__IO uint8_t*)(DATA_EEPROM_BASE + addr) = data;
+	HAL_FLASHEx_DATAEEPROM_Lock();
+}
+
+__STATIC_INLINE uint8_t eepRead(uint8_t addr){
+	return *(__IO uint8_t*)(DATA_EEPROM_BASE + addr);
+}
+
+__STATIC_INLINE void system_reset(void){
+	HAL_DeInit();
+	HAL_NVIC_SystemReset();
+}
+
+__STATIC_INLINE void checkReset_status(void){
+	if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)){
+		color_read();
+		if(set_tcolor == set_bcolor) { set_tcolor = black; set_bcolor = white; }
+
+		VP_read();
+		if(coor_volume < 60 || coor_volume > 210) coor_volume = 135;
+		if(coor_pitch < 60 || coor_pitch > 210) coor_pitch = 135;
+	}
+	else{
+		HAL_FLASHEx_DATAEEPROM_Unlock();
+		for(uint8_t i = 0 ; i < 4 ; i++)
+			*(__IO uint8_t*)(DATA_EEPROM_BASE + i) = 0;
+		HAL_FLASHEx_DATAEEPROM_Lock();
+	}
+	__HAL_RCC_CLEAR_RESET_FLAGS();
+}
+/* Inline Function Define End */
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void color_save(void){
+	eepWrite(Background_Color_ADDR, set_bcolor);
+	eepWrite(Text_Color_ADDR, set_tcolor);
+}
+
+void color_read(void){
+	set_bcolor = eepRead(Background_Color_ADDR);
+	set_tcolor = eepRead(Text_Color_ADDR);
+}
+
+void VP_save(void){
+	eepWrite(Volume_ADDR, coor_volume);
+	eepWrite(Pitch_ADDR, coor_pitch);
+}
+
+void VP_read(void){
+	coor_volume = eepRead(Volume_ADDR);
+	coor_pitch = eepRead(Pitch_ADDR);
+}
 
 void LCD_putsXY(uint16_t x, uint16_t y, char* str, LCD_COLOR color, LCD_COLOR bg_color){
 	LCD_DrawText(str, x * 15, y * 19, color, bg_color);
@@ -166,14 +242,15 @@ void time_setting(void){
 			LCD_putsXY(6, 1, "< Time Setting >", set_tcolor, set_bcolor);
 
 			for(uint8_t i = 0 ; i < 9 ; i++){
-				if(sel == i){
-					txt_color[i] = set_bcolor;
-					back_color[i] = set_tcolor;
+				back_color[i] = set_bcolor;
+				if(sel == i) {
+					if(set_tcolor == white && set_bcolor == black) txt_color[i] = blue;
+					else{
+						txt_color[i] = (set_tcolor + 1) % 7;
+						if(txt_color[i] == set_bcolor) txt_color[i] = (set_bcolor + 1) % 7;
+					}
 				}
-				else{
-					txt_color[i] = set_tcolor;
-					back_color[i] = set_bcolor;
-				}
+				else txt_color[i] = set_tcolor;
 			}
 		}
 		sprintf(bf[0], "Y:%04d", 2000 + set_time.year);
@@ -182,7 +259,7 @@ void time_setting(void){
 		sprintf(bf[2], "D:%02d", set_time.day);
 		sprintf(bf[3], "H:%02d", set_time.hour);
 		sprintf(bf[4], "m:%02d", set_time.min);
-		sprintf(bf[5], "S:%02d ", set_time.sec);
+		sprintf(bf[5], "S:%02d", set_time.sec);
 
 		char* array[9] = { bf[0], bf[1], bf[2], bf[3], bf[4], bf[5], "UP", "DOWN", "OK!" };
 		array_puts(pos, "", array, txt_color, back_color, 9);
@@ -238,7 +315,7 @@ void start(void){
 	time_setting();
 }
 
-void main_menu(void){
+void main_screen(void){
 	if(!firF){
 		firF = 1;
 		curXY.x = curXY.y = 0;
@@ -249,29 +326,29 @@ void main_menu(void){
 		}
 	}
 	time_get();
-	char bf[20];
-	POS pos[4] = {{0, 1}, {2, 4}, {2, 7}};
+	char bf[40];
+	POS pos[4] = {{0, 1}, {2, 4}, {2, 7}, {15, 1}};
 	sprintf(bf, "%04d.%02d.%02d %02d:%02d:%02d", 2000 + time.year, time.month, time.day, time.hour, time.min, time.sec);
 
-	char* array[3] = { bf, "1. Sound modulation", "2. Color Setting" };
-	array_puts(pos, ">Main", array, txt_color, back_color, 3);
+	char* array[4] = { bf, "1. Sound modulation", "2. Color Setting", "Back" };
+	array_puts(pos, ">Main", array, txt_color, back_color, 4);
 
 	if(curXY.x > 0 || curXY.y > 0){
 		if(coor_check(2, 2 + strlen("1. Sound modulation") - 6, 4, 4 + 1)){
 			reset_value();
-			modeF = 1;
+			modeF = sound;
 		}
 		else if(coor_check(2, 2 + strlen("2. Color Setting") - 6, 7, 7 + 1)){
 			reset_value();
-			modeF = 2;
+			modeF = setting;
 		}
 		else if(coor_check(0, strlen(bf) - 6, 1, 1 + 1)) { firF = 0; time_setting(); }
+		else if(coor_check(15, 15 + strlen("Back"), 1, 1 + 1)) { reset_value(); system_reset(); }
+		else if(coor_check(0, strlen(">Main"),0, 1)) { reset_value(); modeF = select_menu; }
 	}
 }
 
 void modulation_mode(void){
-	static uint16_t coor_volume = 135, coor_pitch = 135;
-
 	if(!firF){
 		firF = 1;
 		for(uint8_t i = 0 ; i < 17 ; i++){
@@ -306,18 +383,19 @@ void modulation_mode(void){
 	LCD_DrawHollowCircle(200, 60, 5, set_tcolor);
 	LCD_DrawHollowCircle(200, 210, 5, set_tcolor);
 	LCD_DrawVLine(200, 65, 141, set_tcolor);
-	LCD_DrawFilledCircle(200, coor_volume, 10, set_tcolor);
+	LCD_DrawFilledCircle(200, (uint16_t)coor_volume, 10, set_tcolor);
 	/* Volume Bar End */
 
 	/* Pitch Bar Start */
 	LCD_DrawHollowCircle(250, 60, 5, set_tcolor);
 	LCD_DrawHollowCircle(250, 210, 5, set_tcolor);
 	LCD_DrawVLine(250, 65, 141, set_tcolor);
-	LCD_DrawFilledCircle(250, coor_pitch, 10, set_tcolor);
+	LCD_DrawFilledCircle(250, (uint16_t)coor_pitch, 10, set_tcolor);
 	/* Pitch Bar End */
 
 	if(curXY.x > 0 || curXY.y > 0){
 		if(coor_check(15, 15 + strlen("Back"), 1, 1 + 1)){
+			VP_save();
 			reset_value();
 			buzM = 1;
 		}
@@ -335,17 +413,18 @@ void modulation_mode(void){
 		else if(curXY.x >= 190 && curXY.x <= 210){
 			if(curXY.y >= 60 && curXY.y <= 210) {
 				TS_POINT current_xy = curXY;
-				LCD_DrawFilledCircle(200, coor_volume, 10, set_bcolor);
-				coor_volume = current_xy.y;
+				LCD_DrawFilledCircle(200, (uint16_t)coor_volume, 10, set_bcolor);
+				coor_volume = (uint8_t)current_xy.y;
 			}
 		}
 		else if(curXY.x >= 240 && curXY.x <= 260){
 			if(curXY.y >= 60 && curXY.y <= 210) {
 				TS_POINT current_xy = curXY;
-				LCD_DrawFilledCircle(250, coor_pitch, 10, set_bcolor);
-				coor_pitch = current_xy.y;
+				LCD_DrawFilledCircle(250, (uint16_t)coor_pitch, 10, set_bcolor);
+				coor_pitch = (uint8_t)current_xy.y;
 			}
 		}
+		else if(coor_check(0, strlen(">Modulation"),0, 1)) { VP_save(); reset_value(); modeF = select_menu; buzM = 1; }
 	}
 }
 
@@ -385,17 +464,20 @@ void setting_mode(void){
 
 	for(uint8_t i = 0 ; i < 6 ; i++)
 		LCD_DrawFilledRectangleCoord(RECT * i, 190, RECT * (i + 1), 240, lcd_color[i]);
+	LCD_DrawFilledRectangleCoord(265, 190, 320, 240, white);
 
 	char* array[6] = { bf[0], "Text Color:", "Background Color:", bf[1], bf[2], "Back" };
 	array_puts(pos, ">Setting", array, txt_color, back_color, 6);
 
 	if(curXY.x > 0 || curXY.y > 0){
 		if(coor_check(15, 15 + strlen("Back"), 1, 1 + 1)){
-			set_tcolor = t_color;
-			set_bcolor = b_color;
+			if(t_color != b_color){
+				set_tcolor = t_color;
+				set_bcolor = b_color;
+			}
+			color_save();
 			reset_value();
 			buzM = 1;
-			return;
 		}
 		else if(coor_check(0, strlen(bf[0]) - 6, 1, 1 + 1)) { firF = 0; time_setting(); }
 		else if(coor_check(2, 2 + strlen("Text Color: Yellow") - 6, 4, 4 + 1)) sel = 0;
@@ -408,6 +490,39 @@ void setting_mode(void){
 			else if(curXY.x < RECT * 5) { if(sel == 0) t_color = yellow; else b_color = yellow; }
 			else if(curXY.x < RECT * 6) { if(sel == 0) t_color = white; else b_color = white; }
 		}
+		else if(coor_check(0, strlen(">Setting"),0, 1)) { color_save(); reset_value(); modeF = select_menu; buzM = 1; }
+	}
+}
+
+void select_mode(void){
+	if(!firF){
+		firF = 1;
+		curXY.x = curXY.y = 0;
+	}
+
+	for(uint8_t i = 0 ; i < 17 ; i++){
+		if(i == 1 + backupM){
+			txt_color[i] = set_bcolor;
+			back_color[i] = set_tcolor;
+		}
+		else{
+			txt_color[i] = set_tcolor;
+			back_color[i] = set_bcolor;
+		}
+	}
+	time_get();
+	char bf[40];
+	POS pos[4] = {{0, 1}, {0, 4}, {0, 6}, {0, 8}};
+	sprintf(bf, "%04d.%02d.%02d %02d:%02d:%02d", 2000 + time.year, time.month, time.day, time.hour, time.min, time.sec);
+
+	char* array[4] = { bf, "Main Menu", "Modulation Mode", "Setting Mode" };
+	array_puts(pos, ">Mode Select", array, txt_color, back_color, 4);
+
+	if(curXY.x > 0 || curXY.y > 0){
+		if(coor_check(0, strlen(bf) - 6, 1, 1 + 1)) { firF = 0; time_setting(); }
+		else if(coor_check(0, strlen("Main Menu"), 4, 4 + 1)) { reset_value(); modeF = main_menu; }
+		else if(coor_check(0, strlen("Modulation Mode"), 6, 6 + 1)) { reset_value(); modeF = sound; }
+		else if(coor_check(0, strlen("Setting Mode"), 8, 8 + 1)) { reset_value(); modeF = setting; }
 	}
 }
 
@@ -428,379 +543,394 @@ void HAL_SYSTICK_Callback(void){
 	else curXY = getPoint(1);
 }
 
-void (*main_fuc[3])(void) = { main_menu, modulation_mode, setting_mode };
+void (*main_fuc[4])(void) = { main_screen, modulation_mode, setting_mode, select_mode };
 
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
+ * @brief  The application entry point.
+ * @retval int
+ */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_ADC_Init();
-  MX_DAC_Init();
-  MX_I2C1_Init();
-  MX_DMA_Init();
-  MX_USART1_UART_Init();
-  MX_TIM6_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_ADC_Init();
+	MX_DAC_Init();
+	MX_I2C1_Init();
+	MX_DMA_Init();
+	MX_USART1_UART_Init();
+	MX_TIM6_Init();
+
+	/* Initialize interrupts */
+	MX_NVIC_Init();
+	/* USER CODE BEGIN 2 */
 	HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
 	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac_start);
 	HAL_TIM_Base_Start_IT(&htim6);
 	FT6206_Begin(FT62XX_DEFAULT_THRESHOLD);
 	INIT_FT6206();
 
+	checkReset_status();
+
 	LCD_Clear(set_bcolor);
 	start();
+	backupM = modeF;
+	/* USER CODE END 2 */
 
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 	while (1)
 	{
 		main_fuc[modeF]();
-    /* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+		/* USER CODE BEGIN 3 */
 	}
-	return 0;
-  /* USER CODE END 3 */
+	/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
+ * @brief System Clock Configuration
+ * @retval None
+ */
 void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+	RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4;
-  RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4;
+	RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+			|RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_I2C1;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
-  PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_I2C1;
+	PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
+	PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
+	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+	{
+		Error_Handler();
+	}
 }
 
 /**
-  * @brief ADC Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief NVIC Configuration.
+ * @retval None
+ */
+static void MX_NVIC_Init(void)
+{
+	/* TIM6_DAC_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(TIM6_DAC_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
+}
+
+/**
+ * @brief ADC Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_ADC_Init(void)
 {
 
-  /* USER CODE BEGIN ADC_Init 0 */
+	/* USER CODE BEGIN ADC_Init 0 */
 
-  /* USER CODE END ADC_Init 0 */
+	/* USER CODE END ADC_Init 0 */
 
-  ADC_ChannelConfTypeDef sConfig = {0};
+	ADC_ChannelConfTypeDef sConfig = {0};
 
-  /* USER CODE BEGIN ADC_Init 1 */
+	/* USER CODE BEGIN ADC_Init 1 */
 
-  /* USER CODE END ADC_Init 1 */
+	/* USER CODE END ADC_Init 1 */
 
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc.Instance = ADC1;
-  hadc.Init.OversamplingMode = DISABLE;
-  hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc.Init.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-  hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
-  hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc.Init.ContinuousConvMode = DISABLE;
-  hadc.Init.DiscontinuousConvMode = DISABLE;
-  hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc.Init.DMAContinuousRequests = DISABLE;
-  hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-  hadc.Init.LowPowerAutoWait = DISABLE;
-  hadc.Init.LowPowerFrequencyMode = DISABLE;
-  hadc.Init.LowPowerAutoPowerOff = DISABLE;
-  if (HAL_ADC_Init(&hadc) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+	 */
+	hadc.Instance = ADC1;
+	hadc.Init.OversamplingMode = DISABLE;
+	hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+	hadc.Init.Resolution = ADC_RESOLUTION_12B;
+	hadc.Init.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+	hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
+	hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc.Init.ContinuousConvMode = DISABLE;
+	hadc.Init.DiscontinuousConvMode = DISABLE;
+	hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+	hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+	hadc.Init.DMAContinuousRequests = DISABLE;
+	hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+	hadc.Init.LowPowerAutoWait = DISABLE;
+	hadc.Init.LowPowerFrequencyMode = DISABLE;
+	hadc.Init.LowPowerAutoPowerOff = DISABLE;
+	if (HAL_ADC_Init(&hadc) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** Configure for the selected ADC regular channel to be converted.
-  */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC_Init 2 */
+	/** Configure for the selected ADC regular channel to be converted.
+	 */
+	sConfig.Channel = ADC_CHANNEL_0;
+	sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+	if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN ADC_Init 2 */
 
-  /* USER CODE END ADC_Init 2 */
+	/* USER CODE END ADC_Init 2 */
 
 }
 
 /**
-  * @brief DAC Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief DAC Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_DAC_Init(void)
 {
 
-  /* USER CODE BEGIN DAC_Init 0 */
+	/* USER CODE BEGIN DAC_Init 0 */
 
-  /* USER CODE END DAC_Init 0 */
+	/* USER CODE END DAC_Init 0 */
 
-  DAC_ChannelConfTypeDef sConfig = {0};
+	DAC_ChannelConfTypeDef sConfig = {0};
 
-  /* USER CODE BEGIN DAC_Init 1 */
+	/* USER CODE BEGIN DAC_Init 1 */
 
-  /* USER CODE END DAC_Init 1 */
+	/* USER CODE END DAC_Init 1 */
 
-  /** DAC Initialization
-  */
-  hdac.Instance = DAC;
-  if (HAL_DAC_Init(&hdac) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** DAC Initialization
+	 */
+	hdac.Instance = DAC;
+	if (HAL_DAC_Init(&hdac) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** DAC channel OUT1 config
-  */
-  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
-  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN DAC_Init 2 */
+	/** DAC channel OUT1 config
+	 */
+	sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+	sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+	if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN DAC_Init 2 */
 
-  /* USER CODE END DAC_Init 2 */
+	/* USER CODE END DAC_Init 2 */
 
 }
 
 /**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief I2C1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_I2C1_Init(void)
 {
 
-  /* USER CODE BEGIN I2C1_Init 0 */
+	/* USER CODE BEGIN I2C1_Init 0 */
 
-  /* USER CODE END I2C1_Init 0 */
+	/* USER CODE END I2C1_Init 0 */
 
-  /* USER CODE BEGIN I2C1_Init 1 */
+	/* USER CODE BEGIN I2C1_Init 1 */
 
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00100413;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/* USER CODE END I2C1_Init 1 */
+	hi2c1.Instance = I2C1;
+	hi2c1.Init.Timing = 0x00100413;
+	hi2c1.Init.OwnAddress1 = 0;
+	hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+	hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+	hi2c1.Init.OwnAddress2 = 0;
+	hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+	hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+	hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+	if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Configure Analogue filter
+	 */
+	if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Configure Digital filter
+	 */
+	if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** I2C Fast mode Plus enable
-  */
-  HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C1);
-  /* USER CODE BEGIN I2C1_Init 2 */
+	/** I2C Fast mode Plus enable
+	 */
+	HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C1);
+	/* USER CODE BEGIN I2C1_Init 2 */
 
-  /* USER CODE END I2C1_Init 2 */
+	/* USER CODE END I2C1_Init 2 */
 
 }
 
 /**
-  * @brief TIM6 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM6 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM6_Init(void)
 {
 
-  /* USER CODE BEGIN TIM6_Init 0 */
+	/* USER CODE BEGIN TIM6_Init 0 */
 
-  /* USER CODE END TIM6_Init 0 */
+	/* USER CODE END TIM6_Init 0 */
 
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+	TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM6_Init 1 */
+	/* USER CODE BEGIN TIM6_Init 1 */
 
-  /* USER CODE END TIM6_Init 1 */
-  htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 4-1;
-  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 65535;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM6_Init 2 */
+	/* USER CODE END TIM6_Init 1 */
+	htim6.Instance = TIM6;
+	htim6.Init.Prescaler = 4-1;
+	htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim6.Init.Period = 600-1;
+	htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM6_Init 2 */
 
-  /* USER CODE END TIM6_Init 2 */
+	/* USER CODE END TIM6_Init 2 */
 
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_USART1_UART_Init(void)
 {
 
-  /* USER CODE BEGIN USART1_Init 0 */
+	/* USER CODE BEGIN USART1_Init 0 */
 
-  /* USER CODE END USART1_Init 0 */
+	/* USER CODE END USART1_Init 0 */
 
-  /* USER CODE BEGIN USART1_Init 1 */
+	/* USER CODE BEGIN USART1_Init 1 */
 
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
+	/* USER CODE END USART1_Init 1 */
+	huart1.Instance = USART1;
+	huart1.Init.BaudRate = 115200;
+	huart1.Init.WordLength = UART_WORDLENGTH_8B;
+	huart1.Init.StopBits = UART_STOPBITS_1;
+	huart1.Init.Parity = UART_PARITY_NONE;
+	huart1.Init.Mode = UART_MODE_TX_RX;
+	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+	if (HAL_UART_Init(&huart1) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART1_Init 2 */
 
-  /* USER CODE END USART1_Init 2 */
+	/* USER CODE END USART1_Init 2 */
 
 }
 
 /**
-  * Enable DMA controller clock
-  */
+ * Enable DMA controller clock
+ */
 static void MX_DMA_Init(void)
 {
 
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
+	/* DMA controller clock enable */
+	__HAL_RCC_DMA1_CLK_ENABLE();
 
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+	/* DMA interrupt init */
+	/* DMA1_Channel1_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BUZ_GPIO_Port, BUZ_Pin, GPIO_PIN_RESET);
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(BUZ_GPIO_Port, BUZ_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BUZ_Pin */
-  GPIO_InitStruct.Pin = BUZ_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BUZ_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : BUZ_Pin */
+	GPIO_InitStruct.Pin = BUZ_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(BUZ_GPIO_Port, &GPIO_InitStruct);
 
 }
 
@@ -811,7 +941,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 	static uint32_t tick, value;
 
-	if(htim->Instance == TIM6){
+	if(htim->Instance == htim6.Instance){
 		pitch_set();
 		if(++tick > (adcV / 4) * pitch){
 			tick = 0;
@@ -827,33 +957,34 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
 void Error_Handler(void)
 {
-  /* USER CODE BEGIN Error_Handler_Debug */
+	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1)
 	{
+		HAL_NVIC_SystemReset();
 	}
-  /* USER CODE END Error_Handler_Debug */
+	/* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  /* USER CODE BEGIN 6 */
+	/* USER CODE BEGIN 6 */
 	/* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+	/* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

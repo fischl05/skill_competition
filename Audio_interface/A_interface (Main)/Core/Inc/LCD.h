@@ -13,6 +13,8 @@ typedef enum{
 	black, blue, green, red, yellow, white,
 }LCD_COLOR;
 
+//void LCD_Init(void);
+
 void LCD_DrawColor(LCD_COLOR color);
 void LCD_DrawColorBurst(LCD_COLOR color, uint32_t size);
 void LCD_FillScreen(LCD_COLOR color);
