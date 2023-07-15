@@ -1,6 +1,6 @@
 #include "FT6206.h"
 
-static TS_POINT coor; // user coordinate
+static TS_POINT coor; // User coordinate
 static uint8_t touches;
 static uint16_t touchX[2], touchY[2], touchID[2];
 
