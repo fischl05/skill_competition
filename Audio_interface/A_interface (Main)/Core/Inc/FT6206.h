@@ -28,7 +28,7 @@
 #define FT6236U_CHIPID 0x64 //!< Chip selecting
 
 // calibrated for Adafruit 2.8" ctp screen
-#define FT62XX_DEFAULT_THRESHOLD 100 //!< Default threshold for touch detection
+#define FT62XX_DEFAULT_THRESHOLD 255 //!< Default threshold for touch detection
 
 extern I2C_HandleTypeDef hi2c1;
 

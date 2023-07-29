@@ -94,8 +94,8 @@ typedef enum{
 }TIME_LOAD_STATE;
 
 typedef enum{
-	speaker_on,
 	speaker_off,
+	speaker_on,
 }SPEAKER_STATE;
 /* enum define end */
 
@@ -110,7 +110,7 @@ typedef enum{
 #define RECT 53
 #define BUZ(X) BUZ_GPIO_Port->BSRR = (X) ? BUZ_Pin : BUZ_Pin << 16
 #define XYsetZero curXY.x = curXY.y = 0
-#define SOUND_IN adcV > 100
+#define SOUND_IN (adcV > 150)
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -133,7 +133,7 @@ const uint8_t lastDay[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 LCD_COLOR set_tcolor = black, set_bcolor = white;
 LCD_COLOR txt_color[17] = { black }, back_color[17] = { white };
 
-TS_POINT curXY = { 0, 0 };
+TS_POINT curXY = { 0, 0, 0 };
 
 TIME time = { 23, 6, 22, 0, 0, 0 };
 
@@ -164,31 +164,31 @@ static void MX_ADC_Init(void);
 static void MX_DAC_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_DMA_Init(void);
-static void MX_USART1_UART_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_USART1_UART_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* Function prototype define Start */
-static inline void time_set(void);
-static inline void time_get(void);
-static inline void pitch_set(void);
-static inline void reset_value(void);
-static inline void system_reset(void);
-static inline void LCD_Clear(LCD_COLOR color);
-static inline void eepWrite(uint8_t addr, uint8_t data);
-static inline uint8_t eepRead(uint8_t addr);
-static inline uint8_t checkReset_status(void);
-static inline uint8_t xy_check(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1);
+__STATIC_INLINE void time_set(void);
+__STATIC_INLINE void time_get(void);
+__STATIC_INLINE void pitch_set(void);
+__STATIC_INLINE void reset_value(void);
+__STATIC_INLINE void system_reset(void);
+__STATIC_INLINE void LCD_Clear(LCD_COLOR color);
+__STATIC_INLINE void eepWrite(uint8_t addr, uint8_t data);
+__STATIC_INLINE uint8_t eepRead(uint8_t addr);
+__STATIC_INLINE uint8_t checkReset_status(void);
+__STATIC_INLINE uint8_t xy_check(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1);
 void start(void);
 void VP_save(void);
 void VP_read(void);
 void start_dis(void);
+void main_mode(void);
 void color_save(void);
 void color_read(void);
 void select_mode(void);
 void All_eepRead(void);
-void main_screen(void);
 void All_eepWrite(void);
 void setting_mode(void);
 void modulation_mode(void);
@@ -199,25 +199,25 @@ void array_puts(POS* pos, char* title, char** arr, LCD_COLOR* color, LCD_COLOR* 
 /* Function prototype define End */
 
 /* Inline Function Define Start */
-static inline void time_set(void){
+__STATIC_INLINE void time_set(void){
 	DS3231_set_time(time.sec, time.min, time.hour);
 	DS3231_set_date(time.day, time.month, time.year);
 }
 
-static inline void time_get(void){
+__STATIC_INLINE void time_get(void){
 	DS3231_get_time(&time.sec, &time.min, &time.hour);
 	DS3231_get_date(&time.day, &time.month, &time.year);
 }
 
-static inline uint8_t xy_check(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1){
+__STATIC_INLINE uint8_t xy_check(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1){
 	return ((curXY.x >= x0 * 15 && curXY.x <= x1 * 15) && (curXY.y >= y0 * 19 && curXY.y <= y1 * 19));
 }
 
-static inline void LCD_Clear(LCD_COLOR color){
+__STATIC_INLINE void LCD_Clear(LCD_COLOR color){
 	LCD_FillScreen(color);
 }
 
-static inline void reset_value(void){
+__STATIC_INLINE void reset_value(void){
 	backupM = modeF;
 	touched_check = none_xy;
 	modeF = firF = buzM = 0;
@@ -225,38 +225,38 @@ static inline void reset_value(void){
 	LCD_Clear(set_bcolor);
 }
 
-static inline void pitch_set(void){
+__STATIC_INLINE void pitch_set(void){
 	switch(pitch_state){
-	case PITCH_STATE_10:  pitch =  0.1;    break;
-	case PITCH_STATE_9:   pitch =  0.2;    break;
-	case PITCH_STATE_8:   pitch =  0.4;    break;
-	case PITCH_STATE_7:   pitch =  0.8;    break;
-	case PITCH_STATE_6:   pitch =  0.9;    break;
-	case PITCH_STATE_5:   pitch =  1.0;    break;
-	case PITCH_STATE_4:   pitch =  2.5;    break;
-	case PITCH_STATE_3:   pitch =  4.5;    break;
-	case PITCH_STATE_2:   pitch =  8.5;    break;
-	case PITCH_STATE_1:   pitch =  9.5;    break;
-	case PITCH_STATE_0:   pitch = 10.5;    break;
+	case PITCH_STATE_10:   pitch =  0.1;     break;
+	case PITCH_STATE_9:    pitch =  0.2;     break;
+	case PITCH_STATE_8:    pitch =  0.4;     break;
+	case PITCH_STATE_7:    pitch =  0.8;     break;
+	case PITCH_STATE_6:    pitch =  0.9;     break;
+	case PITCH_STATE_5:    pitch =  1.0;     break;
+	case PITCH_STATE_4:    pitch =  2.5;     break;
+	case PITCH_STATE_3:    pitch =  4.5;     break;
+	case PITCH_STATE_2:    pitch =  8.5;     break;
+	case PITCH_STATE_1:    pitch =  9.5;     break;
+	case PITCH_STATE_0:    pitch = 10.5;     break;
 	}
 }
 
-static inline void eepWrite(uint8_t addr, uint8_t data){
+__STATIC_INLINE void eepWrite(uint8_t addr, uint8_t data){
 	HAL_FLASHEx_DATAEEPROM_Unlock();
 	*(__IO uint8_t*)(DATA_EEPROM_BASE + addr) = data;
 	HAL_FLASHEx_DATAEEPROM_Lock();
 }
 
-static inline uint8_t eepRead(uint8_t addr){
+__STATIC_INLINE uint8_t eepRead(uint8_t addr){
 	return *(__IO uint8_t*)(DATA_EEPROM_BASE + addr);
 }
 
-static inline void system_reset(void){
+__STATIC_INLINE void system_reset(void){
 	HAL_DeInit();
 	HAL_NVIC_SystemReset();
 }
 
-static inline uint8_t checkReset_status(void){
+__STATIC_INLINE uint8_t checkReset_status(void){
 	if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)){
 		All_eepRead();
 
@@ -377,8 +377,8 @@ void time_setting(TIME_LOAD_STATE state){
 			}
 			else txt_color[i] = set_tcolor;
 		}
-
 		if(set_time.day > lastDay[set_time.month - 1]) set_time.day = lastDay[set_time.month - 1];
+
 		sprintf(bf[0], "Y:%04d", 2000 + set_time.year);
 		sprintf(bf[1], "M:%02d", set_time.month);
 		sprintf(bf[2], "D:%02d", set_time.day);
@@ -390,33 +390,33 @@ void time_setting(TIME_LOAD_STATE state){
 		array_puts(pos, "", array, txt_color, back_color, 9);
 
 		if((curXY.x >0 || curXY.y > 0)){
-			if(xy_check(17, 17 + strlen("OK!"), 10, 11))     break;
-			else if(xy_check(5, 5 + strlen(bf[0]), 4, 5))    sel = 0;
-			else if(xy_check(10, 10 + strlen(bf[1]), 4, 5))  sel = 1;
-			else if(xy_check(14, 14 + strlen(bf[2]), 4, 5))  sel = 2;
-			else if(xy_check(6, 7 + strlen(bf[3]), 5, 6))    sel = 3;
-			else if(xy_check(10, 10 + strlen(bf[4]), 5, 6))  sel = 4;
-			else if(xy_check(14, 14 + strlen(bf[5]), 5, 6))  sel = 5;
+			if(xy_check(17, 17 + strlen("OK!"), 10, 11))       break;
+			else if(xy_check(5, 5 + strlen(bf[0]), 4, 5))      sel = 0;
+			else if(xy_check(10, 10 + strlen(bf[1]), 4, 5))    sel = 1;
+			else if(xy_check(14, 14 + strlen(bf[2]), 4, 5))    sel = 2;
+			else if(xy_check(6, 7 + strlen(bf[3]), 5, 6))      sel = 3;
+			else if(xy_check(10, 10 + strlen(bf[4]), 5, 6))    sel = 4;
+			else if(xy_check(14, 14 + strlen(bf[5]), 5, 6))    sel = 5;
 			else{
 				static uint32_t frev_tick;
 				uint32_t now_tick = HAL_GetTick();
 				if(now_tick - frev_tick > 500){
 					frev_tick = now_tick;
 					if(xy_check(7, 7 + strlen("UP"), 7, 9)){
-						if(sel == 0 && set_time.year < 99)                                set_time.year++;
-						else if(sel == 1 && set_time.month < 12)                          set_time.month++;
-						else if(sel == 2 && set_time.day < lastDay[set_time.month - 1])   set_time.day++;
-						else if(sel == 3 && set_time.hour < 23)                           set_time.hour++;
-						else if(sel == 4 && set_time.min < 59)                            set_time.min++;
-						else if(sel == 5 && set_time.sec < 59)                            set_time.sec++;
+						if(sel == 0 && set_time.year < 99)                                   set_time.year++;
+						else if(sel == 1 && set_time.month < 12)                             set_time.month++;
+						else if(sel == 2 && set_time.day < lastDay[set_time.month - 1])      set_time.day++;
+						else if(sel == 3 && set_time.hour < 23)                              set_time.hour++;
+						else if(sel == 4 && set_time.min < 59)                               set_time.min++;
+						else if(sel == 5 && set_time.sec < 59)                               set_time.sec++;
 					}
 					else if(xy_check(12, 12 + strlen("DOWN"), 7, 9)){
-						if(sel == 0 && set_time.year > 0)                                 set_time.year--;
-						else if(sel == 1 && set_time.month > 1)                           set_time.month--;
-						else if(sel == 2 && set_time.day > 1)                             set_time.day--;
-						else if(sel == 3 && set_time.hour > 0)                            set_time.hour--;
-						else if(sel == 4 && set_time.min > 0)                             set_time.min--;
-						else if(sel == 5 && set_time.sec > 0)                             set_time.sec--;
+						if(sel == 0 && set_time.year > 0)                                    set_time.year--;
+						else if(sel == 1 && set_time.month > 1)                              set_time.month--;
+						else if(sel == 2 && set_time.day > 1)                                set_time.day--;
+						else if(sel == 3 && set_time.hour > 0)                               set_time.hour--;
+						else if(sel == 4 && set_time.min > 0)                                set_time.min--;
+						else if(sel == 5 && set_time.sec > 0)                                set_time.sec--;
 					}
 				}
 			}
@@ -445,7 +445,7 @@ void start(void){
 	__HAL_RCC_CLEAR_RESET_FLAGS();
 }
 
-void main_screen(void){
+void main_mode(void){
 	if(!firF){
 		firF = 1;
 		XYsetZero;
@@ -469,11 +469,11 @@ void main_screen(void){
 	if(touched() == none_xy && touched_check == have_xy) touched_check = none_xy;
 
 	if((curXY.x > 0 || curXY.y > 0) && touched_check == none_xy){
-		if(xy_check(2, 2 + strlen("1. Sound modulation") - 6, 4, 4 + 1))     { reset_value(); modeF = sound_menu;   }
-		else if(xy_check(2, 2 + strlen("2. Color Setting") - 6, 7, 7 + 1))   { reset_value(); modeF = setting_menu; }
-		else if(xy_check(0, strlen(bf) - 6, 1, 1 + 1))                       { firF = 0; time_setting(load_time);   }
-		else if(xy_check(15, 15 + strlen("Back"), 1, 1 + 1))                 { reset_value(); system_reset();       }
-		else if(xy_check(0, strlen(">Main"),0, 1))                           { reset_value(); modeF = select_menu;  }
+		if(xy_check(2, 2 + strlen("1. Sound modulation") - 6, 4, 4 + 1))        {  reset_value(); modeF = sound_menu;   }
+		else if(xy_check(2, 2 + strlen("2. Color Setting") - 6, 7, 7 + 1))      {  reset_value(); modeF = setting_menu; }
+		else if(xy_check(0, strlen(bf) - 6, 1, 1 + 1))                          {  firF = 0; time_setting(load_time);   }
+		else if(xy_check(15, 15 + strlen("Back"), 1, 1 + 1))                    {  reset_value(); system_reset();       }
+		else if(xy_check(0, strlen(">Main"),0, 1))                              {  reset_value(); modeF = select_menu;  }
 	}
 }
 
@@ -540,7 +540,9 @@ void modulation_mode(void){
 		else if(xy_check(0, strlen(bf[0]) - 6, 1, 1 + 1)) { firF = 0; time_setting(load_time); }
 		else if(xy_check(5, 5 + strlen("OFF"), 4, 4 + 1)) {
 			touched_check = have_xy;
-			sound_start ^= 1;
+//			sound_start = sound_start == speaker_off ? speaker_on : speaker_off;
+			if(sound_start == speaker_off) sound_start = speaker_on;
+			else sound_start = speaker_off;
 		}
 		if(curXY.y >= 60 && curXY.y <= 210){
 			TS_POINT current_xy = curXY;
@@ -591,8 +593,8 @@ void setting_mode(void){
 	txt_color[3] = t_color;
 	txt_color[4] = b_color;
 
-	sprintf(bf[1], "%s   ", t_color == black ? "Black" : t_color == blue ? "Blue" : t_color == green ? "Green" : t_color == red ? "Red" : t_color == yellow ? "Yellow" : "White");
-	sprintf(bf[2], "%s   ", b_color == black ? "Black" : b_color == blue ? "Blue" : b_color == green ? "Green" : b_color == red ? "Red" : b_color == yellow ? "Yellow" : "White");
+	sprintf(bf[1], "%s    ", t_color == black ? "Black" : t_color == blue ? "Blue" : t_color == green ? "Green" : t_color == red ? "Red" : t_color == yellow ? "Yellow" : "White");
+	sprintf(bf[2], "%s    ", b_color == black ? "Black" : b_color == blue ? "Blue" : b_color == green ? "Green" : b_color == red ? "Red" : b_color == yellow ? "Yellow" : "White");
 
 	for(uint8_t i = 0 ; i < 6 ; i++)
 		LCD_DrawFilledRectangleCoord(RECT * i, 190, RECT * (i + 1), 240, lcd_color[i]);
@@ -618,12 +620,12 @@ void setting_mode(void){
 		else if(xy_check(2, 2 + strlen("Text Color") - 6, 4, 4 + 1))       sel = 0;
 		else if(xy_check(2, 2 + strlen("Background Color") - 6, 6, 6 + 1)) sel = 1;
 		else if(curXY.y > 190){
-			if(curXY.x < RECT)          { if(sel == 0) t_color = black;  else  b_color = black;  }
-			else if(curXY.x < RECT * 2) { if(sel == 0) t_color = blue;   else  b_color = blue;   }
-			else if(curXY.x < RECT * 3) { if(sel == 0) t_color = green;  else  b_color = green;  }
-			else if(curXY.x < RECT * 4) { if(sel == 0) t_color = red;    else  b_color = red;    }
-			else if(curXY.x < RECT * 5) { if(sel == 0) t_color = yellow; else  b_color = yellow; }
-			else if(curXY.x < RECT * 6) { if(sel == 0) t_color = white;  else  b_color = white;  }
+			if(curXY.x < RECT)              {  if(sel == 0) t_color = black;    else b_color = black;  }
+			else if(curXY.x < RECT * 2)     {  if(sel == 0) t_color = blue;     else b_color = blue;   }
+			else if(curXY.x < RECT * 3)     {  if(sel == 0) t_color = green;    else b_color = green;  }
+			else if(curXY.x < RECT * 4)     {  if(sel == 0) t_color = red;      else b_color = red;    }
+			else if(curXY.x < RECT * 5)     {  if(sel == 0) t_color = yellow;   else b_color = yellow; }
+			else if(curXY.x < RECT * 6)     {  if(sel == 0) t_color = white;    else b_color = white;  }
 		}
 		else if(xy_check(0, strlen(">Setting"), 0, 1)) { color_save(); reset_value(); modeF = select_menu; buzM = 1; }
 	}
@@ -659,10 +661,10 @@ void select_mode(void){
 	if(touched() == none_xy && touched_check == have_xy) touched_check = none_xy;
 
 	if((curXY.x > 0 || curXY.y > 0) && touched_check == none_xy){
-		if(xy_check(0, strlen(bf) - 6, 1, 1 + 1))                 { firF = 0; time_setting(load_time);           }
-		else if(xy_check(0, strlen("Main Menu"), 4, 4 + 1))       { reset_value(); modeF = main_menu;    }
-		else if(xy_check(0, strlen("Modulation Mode"), 6, 6 + 1)) { reset_value(); modeF = sound_menu;   }
-		else if(xy_check(0, strlen("Setting Mode"), 8, 8 + 1))    { reset_value(); modeF = setting_menu; }
+		if(xy_check(0, strlen(bf) - 6, 1, 1 + 1))                        { firF = 0; time_setting(load_time);   }
+		else if(xy_check(0, strlen("Main Menu"), 4, 4 + 1))              { reset_value(); modeF = main_menu;    }
+		else if(xy_check(0, strlen("Modulation Mode"), 6, 6 + 1))        { reset_value(); modeF = sound_menu;   }
+		else if(xy_check(0, strlen("Setting Mode"), 8, 8 + 1))           { reset_value(); modeF = setting_menu; }
 	}
 }
 
@@ -682,7 +684,7 @@ void HAL_SYSTICK_Callback(void){
 	curXY = getPoint(getTouch_state);
 }
 
-void (*main_fuc[4])(void) = { main_screen, modulation_mode, setting_mode, select_mode };
+void (*main_fuc[4])(void) = { main_mode, modulation_mode, setting_mode, select_mode };
 
 /* USER CODE END 0 */
 
@@ -718,15 +720,15 @@ int main(void)
 	MX_DAC_Init();
 	MX_I2C1_Init();
 	MX_DMA_Init();
-	MX_USART1_UART_Init();
 	MX_TIM6_Init();
+	MX_USART1_UART_Init();
 
 	/* Initialize interrupts */
 	MX_NVIC_Init();
 	/* USER CODE BEGIN 2 */
-	HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
-	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
 	HAL_TIM_Base_Start_IT(&htim6);
+	HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
+	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
 	INIT_FT6206();
 	FT6206_Begin(FT62XX_DEFAULT_THRESHOLD);
 
@@ -1073,15 +1075,17 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	// If this Code don`t play you need annotation inversion for 'value'
+// If this Code don`t play you need annotation inversion for 'value'
 
-	if(htim->Instance == htim6.Instance){
+	if(htim->Instance == TIM6){
+		HAL_ADC_Start_DMA(&hadc, &adcV, 1);
+
 		pitch_set();
 		if(++tick > (adcV / 4) * pitch){
 			tick = 0;
-			if(value > 0) value = 0;
-			else value = (uint32_t)max_volume * 40;
-//			value = value > 0 ? 0 : max_volume * 40;
+//			if(value > 0) value = 0;
+//			else value = (uint32_t)max_volume * 40;
+			value = value > 0 ? 0 : (uint32_t)max_volume * 40;
 		}
 
 		if(sound_start == speaker_on && SOUND_IN) HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, value);
@@ -1101,6 +1105,7 @@ void Error_Handler(void)
 	__disable_irq();
 	while (1)
 	{
+		HAL_DeInit();
 		HAL_NVIC_SystemReset();
 	}
 	/* USER CODE END Error_Handler_Debug */

@@ -36,8 +36,7 @@ void readData(void){
 	HAL_I2C_Master_Receive(&hi2c1, FT62XX_ADDR, i2cdat, 16, 10);
 
 	touches = i2cdat[0x02];
-	if(touches > 2 || touches == 0)
-		touches = 0;
+	if(touches > 2) touches = 0;
 
 	for(uint8_t i = 0 ; i < 2 ; i++){
 	    touchX[i] = i2cdat[0x03 + i * 6] & 0x0F;
@@ -58,17 +57,14 @@ void INIT_FT6206(void) {
 
 uint8_t touched(void){
 	uint8_t n = readRegister8(FT62XX_REG_NUMTOUCHES);
-	if(n > 2)
-		n = 0;
+	if(n > 2) n = 0;
 	return n;
 }
 
 TS_POINT getPoint(uint8_t n) {
 	readData();
-	if ((touches == 0) || (n >= 1))
-		TS_POINT_set(0, 0, 0);
-	else
-		TS_POINT_set(320 - touchY[n], touchX[n], 1);
+	if ((touches == 0) || (n >= 1)) TS_POINT_set(0, 0, 0);
+	else TS_POINT_set(320 - touchY[n], touchX[n], 1);
 	return coor;
 }
 
