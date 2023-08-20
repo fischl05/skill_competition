@@ -578,8 +578,8 @@ void task_fuc(void){
 		else if(SW(2) == 0) sign_check = 0;
 
 		/* coordinate display for task testing */
-         sprintf(bf, "xstr 0,0,150,30,0,BLACK,WHITE,0,1,1,\"X: %d Y: %d %d\"", curXY.x, curXY.y, bar_y);
-		 nextion_inst_set(bf);
+                /* sprintf(bf, "xstr 0,0,150,30,0,BLACK,WHITE,0,1,1,\"X: %d Y: %d %d\"", curXY.x, curXY.y, bar_y); */
+		/*  nextion_inst_set(bf); */
 	}
 }
 
