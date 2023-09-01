@@ -1,0 +1,17 @@
+../Core/Src/main.c:176:6:BUZ.part.0	8	static
+../Core/Src/main.c:151:7:get_sensor	24	static
+../Core/Src/main.c:167:6:free_value	8	static
+../Core/Src/main.c:176:6:BUZ	8	static
+../Core/Src/main.c:182:6:BUZ_hz_set	8	static
+../Core/Src/main.c:188:6:nextion_inst_set	24	static
+../Core/Src/main.c:195:6:get_touch	24	static
+../Core/Src/main.c:215:9:area_check	8	static
+../Core/Src/main.c:225:6:button_draw	24	static
+../Core/Src/main.c:236:6:draw_sensor	48	static
+../Core/Src/main.c:258:6:button_display	32	static
+../Core/Src/main.c:288:6:window_display	48	static
+../Core/Src/main.c:348:6:auto_mode	0	static
+../Core/Src/main.c:387:6:task_fuc	56	static
+../Core/Src/main.c:631:6:SystemClock_Config	120	static,ignoring_inline_asm
+../Core/Src/main.c:567:5:main	64	static,ignoring_inline_asm
+../Core/Src/main.c:861:6:Error_Handler	0	static,ignoring_inline_asm
