@@ -156,17 +156,17 @@ UART_HandleTypeDef huart1;
 char bf[100];
 
 uint8_t segment_data[11][7] = {
-		{ 1, 1, 1, 1, 1, 1, 0 }, // 0
-		{ 0, 1, 1, 0, 0, 0, 0 }, // 1
-		{ 1, 1, 0, 1, 1, 0, 1 }, // 2
-		{ 1, 1, 1, 1, 0, 0, 1 }, // 3
-		{ 0, 1, 1, 0, 0, 1, 1 }, // 4
-		{ 1, 0, 1, 1, 0, 1, 1 }, // 5
-		{ 0, 0, 1, 1, 1, 1, 1 }, // 6
-		{ 1, 1, 1, 0, 0, 0, 0 }, // 7
-		{ 1, 1, 1, 1, 1, 1, 1 }, // 8
-		{ 1, 1, 1, 0, 0, 1, 1 }, // 9
-		{ 0, 0, 0, 0, 0, 0, 0 }, // all off
+		{ 1, 1, 1, 1, 1, 1, 0 },  // means segment '0'
+		{ 0, 1, 1, 0, 0, 0, 0 },  // means segment '1'
+		{ 1, 1, 0, 1, 1, 0, 1 },  // means segment '2'
+		{ 1, 1, 1, 1, 0, 0, 1 },  // means segment '3'
+		{ 0, 1, 1, 0, 0, 1, 1 },  // means segment '4'
+		{ 1, 0, 1, 1, 0, 1, 1 },  // means segment '5'
+		{ 0, 0, 1, 1, 1, 1, 1 },  // means segment '6'
+		{ 1, 1, 1, 0, 0, 0, 0 },  // means segment '7'
+		{ 1, 1, 1, 1, 1, 1, 1 },  // means segment '8'
+		{ 1, 1, 1, 0, 0, 1, 1 },  // means segment '9'
+		{ 0, 0, 0, 0, 0, 0, 0 },  // means segment 'all off'
 };
 
 uint8_t motor_power[5] = { 0x0D, 0x19, 0x25, 0x32, 0x3F };
@@ -187,21 +187,21 @@ SENSOR_Typedef sensor[3] = {
 };
 
 /* button x range: 80 y range: 40 */
+/* if button use only one text use struct member first_string only */
 BUTTON_DATA_Typedef button[7] = {
 		/* power set button */
-		{ { 50,  205, 50  + 80, 205 + 40 }, {  }, {  }, "Buzz",   "on/off", "65529" },
-		{ { 355, 205, 355 + 80, 205 + 40 }, {  }, {  }, "Select", "mode",   "65529" },
+		{ { 50,  205, 50  + 80,  205 + 40 }, { /*      not use      */ }, { /*      not use      */ }, "Buzz",      "on/off", "65529" },
+		{ { 355, 205, 355 + 80,  205 + 40 }, { /*      not use      */ }, { /*      not use      */ }, "Select",    "mode",   "65529" },
 
 		/* temperature set button */
-		{ { 20,  205, 20  + 140, 205 + 40 }, { 25,  210, 25  + 10, 240 }, { 145, 210, 145 + 10, 240 }, "Temp", "", "65529" },
-		{ { 320, 205, 320 + 140, 205 + 40 }, { 325, 210, 325 + 10, 240 }, { 445, 210, 445 + 10, 240 }, "Wind", "", "65529" },
+		{ { 20,  205, 20  + 140, 205 + 40 }, { 25,  210, 25  + 10, 240 }, { 145, 210, 145 + 10, 240 }, "Temp",      "",       "65529" },
+		{ { 320, 205, 320 + 140, 205 + 40 }, { 325, 210, 325 + 10, 240 }, { 445, 210, 445 + 10, 240 }, "Wind",      "",       "65529" },
 
 		/* alarm set button */
-		{ { 30,  205, 30  + 100, 205 + 40 }, {  }, {  }, "On alarm",  "", "65529" },
-		{ { 190, 205, 190 + 100, 205 + 40 }, {  }, {  }, "Off alarm", "", "65529" },
-		{ { 350, 205, 350 + 100, 205 + 40 }, {  }, {  }, "OK/Cancel", "", "65529" },
+		{ { 30,  205, 30  + 100, 205 + 40 }, { /*      not use      */ }, { /*      not use      */ }, "On alarm",  "",       "65529" },
+		{ { 190, 205, 190 + 100, 205 + 40 }, { /*      not use      */ }, { /*      not use      */ }, "Off alarm", "",       "65529" },
+		{ { 350, 205, 350 + 100, 205 + 40 }, { /*      not use      */ }, { /*      not use      */ }, "OK/Cancel", "",       "65529" },
 };
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -221,6 +221,11 @@ static void MX_I2C1_Init(void);
 void motor_set(uint8_t voltage, uint8_t control){
 	uint8_t set_command = voltage << 2 | control;
 	HAL_I2C_Mem_Write(&hi2c1, DRV8830_DeviceAddress, DRV8830_CONTROL, 1, &set_command, 1, 100);
+}
+
+void motor_drive(uint8_t* state, uint8_t* power){
+	if(*state == 1) motor_set(motor_power[*power], DRV8830_CW);
+	else            motor_set(motor_power[*power], DRV8830_STOP);
 }
 
 /* BUZZER run function */
@@ -275,24 +280,19 @@ void get_touch(POS_Typedef* buf){
 
 /* slide state set */
 void get_slide(SLIDE_Typedef* buf, POS_Typedef* xy){
-	static POS_Typedef befo_touch       = { 0,0,0 };
-	static POS_Typedef touch_coordinate = { 0,0,0 };
+	static POS_Typedef befo_touch       = { 0, 0, 0 }; // previous touch coordinate
+	static POS_Typedef touch_coordinate = { 0, 0, 0 }; // save first touch coordinate
 
 	if(befo_touch.touched != xy->touched){
-		if(befo_touch.touched == 1){
-			if(touch_coordinate.y > befo_touch.y){
-				if(touch_coordinate.y - befo_touch.y > 30) *buf = up_slide;
-			}
-			else if(befo_touch.y > touch_coordinate.y){
-				if(befo_touch.y - touch_coordinate.y > 30) *buf = down_slide;
-			}
+		/* if release touch this function run */
+		if(xy->touched == 0){
+			if(touch_coordinate.y > befo_touch.y)       *buf = (touch_coordinate.y - befo_touch.y > 30) ? up_slide   : none;
+			else if(befo_touch.y  > touch_coordinate.y) *buf = (befo_touch.y - touch_coordinate.y > 30) ? down_slide : none;
 		}
-		else{
-			touch_coordinate.x = xy->x;
-			touch_coordinate.y = xy->y;
-		}
+		/* if touch this function run */
+		else touch_coordinate = *xy;
 	}
-	else *buf = none;
+	else *buf  = none;
 	befo_touch = *xy;
 }
 
@@ -300,14 +300,15 @@ void get_slide(SLIDE_Typedef* buf, POS_Typedef* xy){
 uint8_t area_check(POS_Typedef* curXY, AREA_Typedef* area){
 	if(curXY->x >= area->x0 - 10 && curXY->x <= area->x1 + 10){
 		if(curXY->y >= area->y0 - 10 && curXY->y <= area->y1 + 10){
-			if(buzM == 0) buzM = 1;
+			screen_update = (screen_update == 1) ? 0 : screen_update;
+			buzM = (buzM == 0) ? 1 : buzM;
 			return 1;
 		}
 	}
 	return 0;
 }
 
-/* segment draw */
+/* segment draw function */
 void segment_draw(POS_Typedef* xy, uint8_t* data){
 	/* segment 'a' draw */
 	sprintf(bf, "fill %d,%d,30,10,%s", xy->x + 10, xy->y, data[a] == 1 ? "BLACK" : "WHITE");
@@ -555,8 +556,8 @@ void basic_screen(MODE_Typedef* alarm, MODE_Typedef* color, uint8_t* data, uint8
 /* all task function */
 /* all display function is merge in this function */
 void task_fuc(void){
-	uint32_t tick = 0;
-	uint32_t buz_tick = 0;
+	uint32_t tick       = 0;
+	uint32_t buz_tick   = 0;
 	uint32_t alarm_tick = 0;
 
 	MODE_Typedef mode      = cooling;
@@ -564,12 +565,13 @@ void task_fuc(void){
 
 	uint8_t befo_touch = 0;
 
-	uint8_t set_temp = 18;
-	uint8_t wind_power = 0;
+	uint8_t set_temp   = 18;
+	uint8_t wind_power = 0, motorM = 0;
 
-	AREA_Typedef power_area = { 180, 180, 180+130, 180+92 };
-	ALARM_Typedef alarm_time = { 1, 1 };
+	AREA_Typedef power_area  = { 180, 180, 180+130, 180+92 };
+	ALARM_Typedef alarm_time = { 1, 1, 0, 0 };
 
+	/* LCD clear (color: WHITE) */
 	nextion_inst_set("cls WHITE");
 	nextion_inst_set("cls WHITE");
 	nextion_inst_set("cls WHITE");
@@ -590,108 +592,74 @@ void task_fuc(void){
 			basic_screen(&mode, &befo_mode, mode == on_alarm ? &alarm_time.on_time : mode == off_alarm ? &alarm_time.off_time : &set_temp, &wind_power);
 		}
 
-		/* when this function run if you touched lcd */
+		/* when this function run if you touched LCD */
 		if(curXY.touched != befo_touch && curXY.touched == 1){
-			/*  */
+			/* touch function for each menu */
+
+			/* buzzer on/off, power on/off, mode change button */
 			if(lower_menu == power_set_state){
 				if(area_check(&curXY, &power_area)){
-					screen_update = 0;
 					power = power == off ? on : off;
 					mode = cooling;
 					wind_power = 0;
 				}
-				else if(area_check(&curXY, &button[buz_button].area)){
-					buz_state = buz_state == buz_on ? buz_off : buz_on;
-				}
+				else if(area_check(&curXY, &button[buz_button].area)) buz_state = buz_state == buz_on ? buz_off : buz_on;
 				else if(area_check(&curXY, &button[select_button].area)){
-					screen_update = 0;
 					mode = mode == heating ? 0 : mode + 1;
+					wind_power = (mode == ventilation && wind_power != 1) ? 1 : wind_power;
 				}
 			}
+			/* adjust desired temperature value, adjust wind power button */
 			else if(lower_menu == temp_set_state){
 				/* temp button check */
-				if(area_check(&curXY, &button[temp_button].left_area)){
-					screen_update = 0;
-					if(set_temp > 18) set_temp--;
-				}
-				else if(area_check(&curXY, &button[temp_button].right_area)){
-					screen_update = 0;
-					if(set_temp < 30) set_temp++;
-				}
+				if(area_check(&curXY, &button[temp_button].left_area))       { set_temp = (set_temp > 18) ? set_temp - 1 : set_temp; }
+				else if(area_check(&curXY, &button[temp_button].right_area)) { set_temp = (set_temp < 30) ? set_temp + 1 : set_temp; }
 
 				/* wind button check */
-				if(area_check(&curXY, &button[wind_button].left_area)){
-					screen_update = 0;
-					if(wind_power > 0) wind_power--;
-				}
-				else if(area_check(&curXY, &button[wind_button].right_area)){
-					screen_update = 0;
-					if(wind_power < 4) wind_power++;
-				}
+				if(area_check(&curXY, &button[wind_button].left_area))       { wind_power = (wind_power > 0) ? wind_power - 1 : wind_power; }
+				else if(area_check(&curXY, &button[wind_button].right_area)) { wind_power = (wind_power < 4) ? wind_power + 1 : wind_power; }
 			}
+			/* adjust power on reservation time, adjust power off reservation, save setting button */
 			else if(lower_menu == alarm_set_state){
 				if(area_check(&curXY, &button[alarm_on_button].area)){
-					screen_update = 0;
 					if(mode != on_alarm) {
-						if(alarm_time.alarm_on_f == 0) { alarm_time.alarm_on_f = 1; alarm_time.on_time = 1; }
+						if(alarm_time.alarm_on_f == 0)  { alarm_time.alarm_on_f  = 1; alarm_time.on_time = 1; }
 						mode = on_alarm;
 					}
-					else{
-						alarm_time.on_time = alarm_time.on_time < 20 ? alarm_time.on_time + 1 : 1;
-					}
+					else alarm_time.on_time = alarm_time.on_time < 20 ? alarm_time.on_time + 1 : 1;
 				}
 				else if(area_check(&curXY, &button[alarm_off_button].area)){
-					screen_update = 0;
 					if(mode != off_alarm) {
 						if(alarm_time.alarm_off_f == 0) { alarm_time.alarm_off_f = 1; alarm_time.off_time = 1; }
 						mode = off_alarm;
 					}
-					else{
-						alarm_time.off_time = alarm_time.off_time < 20 ? alarm_time.off_time + 1 : 1;
-					}
+					else alarm_time.off_time = alarm_time.off_time < 20 ? alarm_time.off_time + 1 : 1;
 				}
-				else if(area_check(&curXY, &button[alarm_ok_button].area)){
-					screen_update = 0;
-					mode = befo_mode;
-				}
+				else if(area_check(&curXY, &button[alarm_ok_button].area)) mode = befo_mode;
 			}
 		}
 
 		/* slide function */
-		if(slide_state == up_slide){
+		if(slide_state != none){
 			screen_update = 0;
 
-			lower_menu = lower_menu == alarm_set_state ? power_set_state : lower_menu + 1;
+			if(slide_state == up_slide)        lower_menu = (lower_menu == alarm_set_state) ? lower_menu = power_set_state : lower_menu + 1;
+			else if(slide_state == down_slide) lower_menu = (lower_menu == power_set_state) ? lower_menu = alarm_set_state : lower_menu - 1;
 		}
-		else if(slide_state == down_slide){
-			screen_update = 0;
 
-			lower_menu = lower_menu == power_set_state ? alarm_set_state : lower_menu - 1;
-		}
 
 		/* run motor function */
 		if(power == on){
-			if(mode == cooling){
-				if(sensor[sht41_temp].data > set_temp) motor_set(motor_power[wind_power], DRV8830_CW);
-				else                                   motor_set(motor_power[wind_power], DRV8830_STOP);
-			}
-			else if(mode == dehumidity){
-				if(sensor[sht41_hum].data >= 70) motor_set(motor_power[wind_power], DRV8830_CW);
-				else                             motor_set(motor_power[wind_power], DRV8830_STOP);
-			}
-			else if(mode == ventilation){
-				if(wind_power != 1) { wind_power = 1; screen_update = 0; }
-
-				motor_set(motor_power[wind_power], DRV8830_CW);
-			}
-			else if(mode == heating){
-				if(sensor[sht41_temp].data < set_temp) motor_set(motor_power[wind_power], DRV8830_CW);
-				else                                   motor_set(motor_power[wind_power], DRV8830_STOP);
-			}
+			if(mode == cooling)          motorM = sensor[sht41_temp].data > set_temp ? 1 : 0;
+			else if(mode == dehumidity)  motorM = sensor[sht41_hum].data >= 70 ? 1 : 0;
+			else if(mode == ventilation) motorM = motorM == 0 ? 1 : motorM;
+			else if(mode == heating)     motorM = sensor[sht41_temp].data < set_temp ? 1 : 0;
 		}
-		else motor_set(motor_power[wind_power], DRV8830_STOP);
+		else if(motorM == 1) motorM = 0;
 
-		/* using time function */
+		motor_drive(&motorM, &wind_power);
+
+		/* function that use time */
 		if(HAL_GetTick() - tick >= 500){
 			tick = HAL_GetTick();
 			screen_update = 0;
@@ -701,11 +669,11 @@ void task_fuc(void){
 			if(HAL_GetTick() - buz_tick < 100){
 				BUZ(buz_state);
 			}
-			else { BUZ(0); buzM = 0; }
+			else { buzM = 0; buz_tick = HAL_GetTick(); BUZ(0); }
 		}
 		else buz_tick = HAL_GetTick();
 
-		if(mode != on_alarm && mode != off_alarm){
+		if(mode != on_alarm && mode != off_alarm && (alarm_time.alarm_on_f == 1 || alarm_time.alarm_off_f == 1)){
 			if(HAL_GetTick() - alarm_tick > 1000){
 				alarm_tick = HAL_GetTick();
 
