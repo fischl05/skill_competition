@@ -189,10 +189,10 @@ SENSOR_Typedef sensor[3] = {
 /* button x range: 80 y range: 40 */
 BUTTON_DATA_Typedef button[7] = {
 		/* power set button */
-		{ { 40,  205, 40  + 80, 205 + 40 }, {  }, {  }, "Buzz",   "on/off", "65529" },
+		{ { 50,  205, 50  + 80, 205 + 40 }, {  }, {  }, "Buzz",   "on/off", "65529" },
 		{ { 355, 205, 355 + 80, 205 + 40 }, {  }, {  }, "Select", "mode",   "65529" },
 
-		/* temp set button */
+		/* temperature set button */
 		{ { 20,  205, 20  + 140, 205 + 40 }, { 25,  210, 25  + 10, 240 }, { 145, 210, 145 + 10, 240 }, "Temp", "", "65529" },
 		{ { 320, 205, 320 + 140, 205 + 40 }, { 325, 210, 325 + 10, 240 }, { 445, 210, 445 + 10, 240 }, "Wind", "", "65529" },
 
@@ -229,7 +229,7 @@ void BUZ(BUZ_POWER_Typedef state){
 	else                HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1);
 }
 
-/* sensor values memory return */
+/* return as memory have a values */
 void* get_sensor(GET_SENSOR_Typedef mem){
 	if(mem == get_sht41){
 		SHT41_t* buf = (SHT41_t*)malloc(sizeof(SHT41_t));
@@ -552,6 +552,8 @@ void basic_screen(MODE_Typedef* alarm, MODE_Typedef* color, uint8_t* data, uint8
 	lower_menu_fuc[lower_menu]();
 }
 
+/* all task function */
+/* all display function is merge in this function */
 void task_fuc(void){
 	uint32_t tick = 0;
 	uint32_t buz_tick = 0;
