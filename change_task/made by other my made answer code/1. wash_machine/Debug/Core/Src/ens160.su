@@ -1,0 +1,6 @@
+../Core/Src/ens160.c:5:6:initEns160	32	static
+../Core/Src/ens160.c:10:6:putTemperature	56	static
+../Core/Src/ens160.c:19:6:putHumidity	56	static
+../Core/Src/ens160.c:28:5:getCO2	32	static
+../Core/Src/ens160.c:35:5:getTemperature	32	static
+../Core/Src/ens160.c:41:5:getHumidity	32	static

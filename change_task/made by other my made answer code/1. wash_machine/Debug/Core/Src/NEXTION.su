@@ -1,0 +1,5 @@
+../Core/Src/NEXTION.c:7:6:NEXTION_puts	128	static
+../Core/Src/NEXTION.c:14:9:NEXTION_Put_Value_Etc	96	static
+../Core/Src/NEXTION.c:21:6:NEXTION_Change_Page	80	static
+../Core/Src/NEXTION.c:28:9:NEXTION_Get_Touch	32	static
+../Core/Src/NEXTION.c:35:9:NEXTION_Get_Page	32	static

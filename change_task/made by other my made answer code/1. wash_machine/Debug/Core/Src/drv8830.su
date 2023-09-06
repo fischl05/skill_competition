@@ -1,0 +1,2 @@
+../Core/Src/drv8830.c:5:9:initDrv8830	32	static
+../Core/Src/drv8830.c:13:9:setMotor	48	static
